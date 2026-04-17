@@ -5,6 +5,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Math/UnrealMathUtility.h"
 
 // Sets default values
 AFMGPlayer::AFMGPlayer()
@@ -89,6 +90,29 @@ void AFMGPlayer::StopJump()
 	StopJumping();
 }
 
+void AFMGPlayer::StartReload()
+{
+	if (!CanADS()) return;
+
+	bIsADS = true;
+
+	followCamera->SetFieldOfView(FMath::FInterpTo(followCamera->FieldOfView, 60.f, GetWorld()->GetDeltaSeconds(), 120.0f));
+}
+
+void AFMGPlayer::StartADS()
+{
+
+}
+
+void AFMGPlayer::CancelADS()
+{
+
+}
+
+bool AFMGPlayer::CanADS() {
+	return bIsReloading && !(GetCharacterMovement()->IsFalling());
+}
+
 // Called to bind functionality to input
 void AFMGPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -122,6 +146,9 @@ void AFMGPlayer::BindEnhancedInput(UInputComponent* PlayerInputComponent)
 
 		enhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AFMGPlayer::StartJump);
 		enhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AFMGPlayer::StopJump);
+
+		enhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &FMGPlayer::StartReload);
+
 	}
 }
 

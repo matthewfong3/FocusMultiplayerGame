@@ -27,6 +27,14 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	// Conditional Bools
+	bool bIsReloading;
+	bool bIsADS;
+
+	// Pure Methods
+	bool CanADS();
+
+private:
 	// Camera Fields
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpringArmComponent> cameraBoom;
@@ -48,7 +56,11 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> JumpAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAcccess = "true"))
+	TObjectPtr<UInputAction> ReloadAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> ADSAction;
 
 	// HUD
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI", meta = (AllowPrivateAccess = "true"))
@@ -69,6 +81,13 @@ public:
 	void Move(const FInputActionValue& Value);
 	void StopMove();
 	void MouseLook(const FInputActionValue& Value);
+	// Jump
 	void StartJump();
 	void StopJump();
+	// Reload
+	void StartReload();
+	// ADS
+	void StartADS();
+	void CancelADS();
+
 };

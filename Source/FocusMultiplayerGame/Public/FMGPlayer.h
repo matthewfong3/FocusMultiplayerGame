@@ -27,13 +27,16 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	// CONSTANTS
+	const float BULLET_DISTANCE = 10000.0f;
+	int32 curAmmo = 30;
 	// Conditional Bools
 	bool bIsReloading;
 	bool bIsADS;
 
 	// Pure Methods
 	bool CanADS();
-
+	bool CanFire();
 private:
 	// Camera Fields
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -49,6 +52,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input Mapping Context", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input Mapping Context", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputMappingContext> MouseLookInputMappingContext;
+
 	// Enhanced Input Actions
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> MoveAction;
@@ -59,11 +65,14 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> JumpAction;
 
-	UPROPERTY(EditAnywhere, Category = "Input", meta = (AllowPrivateAcccess = "true"))
-	TObjectPtr<UInputAction> ReloadAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> ShootAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> ADSAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input", meta = (AllowPrivateAcccess = "true"))
+	TObjectPtr<UInputAction> ReloadAction;
 
 	// HUD
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI", meta = (AllowPrivateAccess = "true"))
@@ -87,10 +96,14 @@ public:
 	// Jump
 	void StartJump();
 	void StopJump();
+	// Shoot
+	void FireWeapon();
 	// Reload
 	void StartReload();
 	// ADS
 	void StartADS();
 	void CancelADS();
 
+private:
+	void FireLineTrace();
 };

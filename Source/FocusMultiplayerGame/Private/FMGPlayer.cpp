@@ -5,6 +5,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "DamageInterface.h"
+#include "PrintString.h"
 
 // Sets default values
 AFMGPlayer::AFMGPlayer()
@@ -18,6 +20,10 @@ AFMGPlayer::AFMGPlayer()
 
 	followCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	followCamera->SetupAttachment(cameraBoom, USpringArmComponent::SocketName);
+
+	bUseControllerRotationPitch = true;
+	bUseControllerRotationRoll = false;
+	bUseControllerRotationYaw = true;
 
 	// Set up weapon mesh component
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
@@ -50,8 +56,6 @@ void AFMGPlayer::Tick(float DeltaTime)
 
 void AFMGPlayer::Move(const FInputActionValue& Value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Moving"));
-
 	const FVector2D MovementInput = Value.Get<FVector2D>();
 
 	if (GetController() != nullptr) {
@@ -96,6 +100,47 @@ void AFMGPlayer::StopJump()
 	StopJumping();
 }
 
+void AFMGPlayer::FireWeapon()
+{
+	if (!CanFire()) return;
+
+	FireLineTrace();
+}
+
+void AFMGPlayer::FireLineTrace()
+{
+	FVector cameraTraceStart = followCamera->GetComponentLocation();
+	FVector cameraTraceEnd = followCamera->GetComponentLocation() + followCamera->GetForwardVector() * BULLET_DISTANCE;
+	FHitResult hitResult;
+	FCollisionQueryParams traceParams;
+	traceParams.AddIgnoredActor(this);
+
+	// Step 1: Line trace from camera location to where crosshair is aiming
+	bool bCameraHit = GetWorld()->LineTraceSingleByChannel(hitResult, cameraTraceStart, cameraTraceEnd, ECollisionChannel::ECC_Camera, traceParams);
+
+	// Step 2: Use the weapon muzzle socket location as the start location of bullet trace
+	FVector bulletTraceStart = WeaponMesh->GetSocketLocation(TEXT("MuzzleSocket"));
+	FVector bulletTraceEnd = bCameraHit ? hitResult.ImpactPoint : hitResult.TraceEnd;
+
+	// Step 3:  If camera's line trace hit something, draw bullet trace to the impact point
+	//			Else, draw bullet trace to the end of the line trace
+	if (bCameraHit)
+	{
+		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
+		AActor* hitActor = hitResult.GetActor();
+		if (hitActor->GetClass()->ImplementsInterface(UDamageInterface::StaticClass()))
+		{
+			int32 bulletDamage = 20;
+			IDamageInterface::Execute_ApplyDamage(hitActor, bulletDamage);
+		}
+
+	}
+	else
+	{
+		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Red, false, 5.0f, 0, 1.0f);
+	}
+}
+
 void AFMGPlayer::StartReload()
 {
 	
@@ -103,22 +148,9 @@ void AFMGPlayer::StartReload()
 
 void AFMGPlayer::StartADS()
 {
-	if (GEngine) 
+	if (!CanADS())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Green, "ADS Called");
-	}
-	if (!CanADS()) 
-	{
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Green, "Cant ADS");
-		}
 		return;
-	}
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Green, "Should be ADSing");
 	}
 
 	bIsADS = true;
@@ -137,6 +169,11 @@ bool AFMGPlayer::CanADS() {
 	return !bIsReloading && !(GetCharacterMovement()->IsFalling());
 }
 
+bool AFMGPlayer::CanFire()
+{
+	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && (GetCharacterMovement()->Velocity.Length < 400.0f) && curAmmo > 0;
+}
+
 // Called to bind functionality to input
 void AFMGPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -153,6 +190,7 @@ void AFMGPlayer::AddMappingContext()
 		if (UEnhancedInputLocalPlayerSubsystem* subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(playerController->GetLocalPlayer()))
 		{
 			subsystem->AddMappingContext(DefaultInputMappingContext, 0);
+			subsystem->AddMappingContext(MouseLookInputMappingContext, 0);
 		}
 	}
 }
@@ -175,8 +213,6 @@ void AFMGPlayer::BindEnhancedInput(UInputComponent* PlayerInputComponent)
 		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Completed, this, &AFMGPlayer::CancelADS);
 		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Canceled, this, &AFMGPlayer::CancelADS);
 
+		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Triggered, this, &AFMGPlayer::FireWeapon);
 	}
 }
-
-
-

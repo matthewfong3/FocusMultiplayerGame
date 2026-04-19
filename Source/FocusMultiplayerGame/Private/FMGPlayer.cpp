@@ -5,7 +5,6 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Math/UnrealMathUtility.h"
 
 // Sets default values
 AFMGPlayer::AFMGPlayer()
@@ -19,12 +18,19 @@ AFMGPlayer::AFMGPlayer()
 
 	followCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	followCamera->SetupAttachment(cameraBoom, USpringArmComponent::SocketName);
+
+	// Set up weapon mesh component
+	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
+	WeaponMesh->SetupAttachment(GetMesh());
 }
 
 // Called when the game starts or when spawned
 void AFMGPlayer::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Attach weapon mesh to skeletal mesh's weapon socket
+	WeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("AutoRifleSocket"));
 	
 	if (userWidget)
 	{
@@ -92,25 +98,43 @@ void AFMGPlayer::StopJump()
 
 void AFMGPlayer::StartReload()
 {
-	if (!CanADS()) return;
+	
+}
+
+void AFMGPlayer::StartADS()
+{
+	if (GEngine) 
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Green, "ADS Called");
+	}
+	if (!CanADS()) 
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Green, "Cant ADS");
+		}
+		return;
+	}
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Green, "Should be ADSing");
+	}
 
 	bIsADS = true;
 
 	followCamera->SetFieldOfView(FMath::FInterpTo(followCamera->FieldOfView, 60.f, GetWorld()->GetDeltaSeconds(), 120.0f));
 }
 
-void AFMGPlayer::StartADS()
-{
-
-}
-
 void AFMGPlayer::CancelADS()
 {
+	bIsADS = false;
 
+	followCamera->SetFieldOfView(FMath::FInterpTo(followCamera->FieldOfView, 90.f, GetWorld()->GetDeltaSeconds(), 120.0f));
 }
 
 bool AFMGPlayer::CanADS() {
-	return bIsReloading && !(GetCharacterMovement()->IsFalling());
+	return !bIsReloading && !(GetCharacterMovement()->IsFalling());
 }
 
 // Called to bind functionality to input
@@ -124,8 +148,6 @@ void AFMGPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 
 void AFMGPlayer::AddMappingContext()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AddMappingContext called"));
-
 	if (APlayerController* playerController = Cast<APlayerController>(GetController()))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(playerController->GetLocalPlayer()))
@@ -147,7 +169,11 @@ void AFMGPlayer::BindEnhancedInput(UInputComponent* PlayerInputComponent)
 		enhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AFMGPlayer::StartJump);
 		enhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AFMGPlayer::StopJump);
 
-		enhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &FMGPlayer::StartReload);
+		enhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &AFMGPlayer::StartReload);
+
+		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Triggered, this, &AFMGPlayer::StartADS);
+		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Completed, this, &AFMGPlayer::CancelADS);
+		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Canceled, this, &AFMGPlayer::CancelADS);
 
 	}
 }

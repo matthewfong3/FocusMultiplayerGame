@@ -21,9 +21,10 @@ AFMGPlayer::AFMGPlayer()
 	followCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	followCamera->SetupAttachment(cameraBoom, USpringArmComponent::SocketName);
 
-	bUseControllerRotationPitch = true;
+	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 	bUseControllerRotationYaw = true;
+	cameraBoom->bUsePawnControlRotation = true;
 
 	// Set up weapon mesh component
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));

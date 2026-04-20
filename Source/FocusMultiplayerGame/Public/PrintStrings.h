@@ -1,6 +1,6 @@
 #pragma once
-#ifndef PrintString
-#define PrintString
+#ifndef PrintStrings
+#define PrintStrings
 
 namespace DebugTools
 {

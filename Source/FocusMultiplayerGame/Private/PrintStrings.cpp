@@ -1,4 +1,4 @@
-#include "PrintString.h"
+#include "PrintStrings.h"
 
 void DebugTools::PrintToScreen(float duration, FColor color, FString text)
 {

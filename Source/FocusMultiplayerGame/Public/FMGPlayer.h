@@ -105,5 +105,6 @@ public:
 	void CancelADS();
 
 private:
+	void SetupCameraSettings();
 	void FireLineTrace();
 };

@@ -6,7 +6,7 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "DamageInterface.h"
-#include "PrintString.h"
+#include "PrintStrings.h"
 
 // Sets default values
 AFMGPlayer::AFMGPlayer()
@@ -21,10 +21,7 @@ AFMGPlayer::AFMGPlayer()
 	followCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	followCamera->SetupAttachment(cameraBoom, USpringArmComponent::SocketName);
 
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationRoll = false;
-	bUseControllerRotationYaw = true;
-	cameraBoom->bUsePawnControlRotation = true;
+	SetupCameraSettings();
 
 	// Set up weapon mesh component
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
@@ -108,6 +105,15 @@ void AFMGPlayer::FireWeapon()
 	FireLineTrace();
 }
 
+void AFMGPlayer::SetupCameraSettings()
+{
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
+	bUseControllerRotationYaw = true;
+	// Tell the camera boom to use pawn's control rotation
+	cameraBoom->bUsePawnControlRotation = true;
+}
+
 void AFMGPlayer::FireLineTrace()
 {
 	FVector cameraTraceStart = followCamera->GetComponentLocation();
@@ -171,8 +177,10 @@ bool AFMGPlayer::CanADS() {
 }
 
 bool AFMGPlayer::CanFire()
-{
-	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && (GetCharacterMovement()->Velocity.Length < 400.0f) && curAmmo > 0;
+{	
+	// REVISIT THIS: COMPILE ERROR
+	//const float vL = GetCharacterMovement()->Velocity.Length;
+	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && curAmmo > 0; // (vL < 400.0f)
 }
 
 // Called to bind functionality to input

@@ -29,6 +29,10 @@ protected:
 private:
 	// CONSTANTS
 	const float BULLET_DISTANCE = 10000.0f;
+	const float DEFAULT_WALK_SPEED = 500.0f;
+	const float DEFAULT_ADS_SPEED = 200.0f;
+
+
 	int32 curAmmo = 30;
 	// Conditional Bools
 	bool bIsReloading;
@@ -77,6 +81,12 @@ private:
 	// HUD
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UUserWidget> userWidget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Particle System", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UParticleSystem> gunshotMuzzleEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio", meta = (AllowPrivateAccess = true))
+	TObjectPtr<USoundBase> gunshotSound;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -91,7 +101,6 @@ public:
 
 	// Enhanced Input Action Functions
 	void Move(const FInputActionValue& Value);
-	void StopMove();
 	void MouseLook(const FInputActionValue& Value);
 	// Jump
 	void StartJump();
@@ -107,4 +116,6 @@ public:
 private:
 	void SetupCameraSettings();
 	void FireLineTrace();
+	void SpawnGunshotMuzzleEffect();
+	void PlayGunshotSound();
 };

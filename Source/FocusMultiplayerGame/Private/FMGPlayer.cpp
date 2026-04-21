@@ -1,10 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "FMGPlayer.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "DamageInterface.h"
 #include "PrintStrings.h"
 
@@ -49,7 +49,6 @@ void AFMGPlayer::BeginPlay()
 void AFMGPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
 }
 
 void AFMGPlayer::Move(const FInputActionValue& Value)
@@ -69,11 +68,6 @@ void AFMGPlayer::Move(const FInputActionValue& Value)
 	}
 }
 
-void AFMGPlayer::StopMove()
-{
-	
-}
-
 void AFMGPlayer::MouseLook(const FInputActionValue& Value)
 {
 	const FVector2D MouseInput = Value.Get<FVector2D>();
@@ -83,6 +77,16 @@ void AFMGPlayer::MouseLook(const FInputActionValue& Value)
 		AddControllerYawInput(MouseInput.X);
 		AddControllerPitchInput(MouseInput.Y);
 	}
+}
+
+void AFMGPlayer::SetupCameraSettings()
+{
+	// Tell pawn character to use the controller's yaw rotation
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationRoll = false;
+	bUseControllerRotationYaw = true;
+	// Tell the camera boom to use pawn's control rotation
+	cameraBoom->bUsePawnControlRotation = true;
 }
 
 void AFMGPlayer::StartJump()
@@ -100,18 +104,16 @@ void AFMGPlayer::StopJump()
 
 void AFMGPlayer::FireWeapon()
 {
-	if (!CanFire()) return;
+	if (!CanFire())
+	{
+		DebugTools::PrintToScreen(5.0f, FColor::Red, "can't fire");
+		return;
+	}
 
+	// Add a fire rate delay
 	FireLineTrace();
-}
-
-void AFMGPlayer::SetupCameraSettings()
-{
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationRoll = false;
-	bUseControllerRotationYaw = true;
-	// Tell the camera boom to use pawn's control rotation
-	cameraBoom->bUsePawnControlRotation = true;
+	SpawnGunshotMuzzleEffect();
+	PlayGunshotSound();
 }
 
 void AFMGPlayer::FireLineTrace()
@@ -148,6 +150,22 @@ void AFMGPlayer::FireLineTrace()
 	}
 }
 
+void AFMGPlayer::SpawnGunshotMuzzleEffect()
+{
+	if (gunshotMuzzleEffect)
+	{
+		UGameplayStatics::SpawnEmitterAttached(gunshotMuzzleEffect, WeaponMesh, TEXT("MuzzleFlash"));
+	}
+}
+
+void AFMGPlayer::PlayGunshotSound()
+{
+	if (gunshotSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), gunshotSound, GetActorLocation());
+	}
+}
+
 void AFMGPlayer::StartReload()
 {
 	
@@ -163,6 +181,7 @@ void AFMGPlayer::StartADS()
 	bIsADS = true;
 
 	followCamera->SetFieldOfView(FMath::FInterpTo(followCamera->FieldOfView, 60.f, GetWorld()->GetDeltaSeconds(), 120.0f));
+	GetCharacterMovement()->MaxWalkSpeed = DEFAULT_ADS_SPEED;
 }
 
 void AFMGPlayer::CancelADS()
@@ -170,6 +189,7 @@ void AFMGPlayer::CancelADS()
 	bIsADS = false;
 
 	followCamera->SetFieldOfView(FMath::FInterpTo(followCamera->FieldOfView, 90.f, GetWorld()->GetDeltaSeconds(), 120.0f));
+	GetCharacterMovement()->MaxWalkSpeed = DEFAULT_WALK_SPEED;
 }
 
 bool AFMGPlayer::CanADS() {
@@ -209,7 +229,6 @@ void AFMGPlayer::BindEnhancedInput(UInputComponent* PlayerInputComponent)
 	if (UEnhancedInputComponent* enhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		enhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AFMGPlayer::Move);
-		enhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AFMGPlayer::StopMove);
 
 		enhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AFMGPlayer::MouseLook);
 

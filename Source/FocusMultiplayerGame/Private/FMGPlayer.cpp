@@ -216,9 +216,7 @@ bool AFMGPlayer::CanADS() {
 
 bool AFMGPlayer::CanFire()
 {	
-	// REVISIT THIS: COMPILE ERROR
-	//const float vL = GetCharacterMovement()->Velocity.Length;
-	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && curAmmo > 0; // (vL < 400.0f)
+	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && (GetCharacterMovement()->Velocity.Length() < 400.0f) && curAmmo > 0;
 }
 
 void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted)

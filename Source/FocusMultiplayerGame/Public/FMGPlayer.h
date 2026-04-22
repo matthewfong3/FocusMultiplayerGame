@@ -33,7 +33,10 @@ private:
 	const float DEFAULT_ADS_SPEED = 200.0f;
 	const float fireRate = 0.12f;
 
+	// Weapon-related fields
 	int32 curAmmo = 30;
+	int32 magSize = 30;
+	int32 maxAmmo = 90;
 	bool openFireGate = true;
 	FTimerHandle fireTimerHandle;
 
@@ -130,6 +133,8 @@ private:
 	UFUNCTION()
 	void FireWeapon();
 	void FireLineTrace();
+	void UpdateAmmo();
+
 	void SpawnGunshotMuzzleEffect();
 	void PlayGunshotSound();
 	void PlayAnimationMontage(UAnimMontage* AnimMontage);

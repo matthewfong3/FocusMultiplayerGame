@@ -125,6 +125,7 @@ void AFMGPlayer::FireWeapon()
 	FireLineTrace();
 	SpawnGunshotMuzzleEffect();
 	PlayGunshotSound();
+	DebugTools::PrintToScreen(5.0f, FColor::White, curAmmo--;
 }
 
 void AFMGPlayer::StopFiring()
@@ -189,12 +190,21 @@ void AFMGPlayer::StartReload()
 	PlayAnimationMontage(reloadAnimMontage);
 }
 
+void AFMGPlayer::UpdateAmmo()
+{
+	// Step 1: Total all ammo in a temp variable
+	float totalAmmo = curAmmo + maxAmmo;
+
+	// Step 2: Update curAmmo by loading in what we can
+	curAmmo = totalAmmo >= magSize ? magSize : totalAmmo;
+
+	// Step 3: Update maxAmmo
+	maxAmmo = totalAmmo - curAmmo;
+}
+
 void AFMGPlayer::StartADS()
 {
-	if (!CanADS())
-	{
-		return;
-	}
+	if (!CanADS()) return;
 
 	bIsADS = true;
 
@@ -222,11 +232,13 @@ bool AFMGPlayer::CanFire()
 void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsReloading = false;
+	UpdateAmmo();
 }
 
 void AFMGPlayer::OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted)
 {
 	bIsReloading = false;
+	UpdateAmmo();
 }
 
 void AFMGPlayer::PlayAnimationMontage(UAnimMontage* AnimMontage)

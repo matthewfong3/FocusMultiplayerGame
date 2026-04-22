@@ -39,7 +39,6 @@ void AFMGPlayer::BeginPlay()
 	// Bind the Fire delegate to the name of from "this" object
 	FTimerDelegate FireDelegate;
 	FireDelegate.BindUFunction(this, FName("FireWeapon"));
-	EndDelegate.BindUObject(this, &AFMGPlayer::OnReloadEnded);
 	
 	if (userWidget)
 	{
@@ -222,9 +221,13 @@ bool AFMGPlayer::CanFire()
 	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && curAmmo > 0; // (vL < 400.0f)
 }
 
-void AFMGPlayer::OnReloadEnded(UAnimMontage* Montage, bool bInterrupted)
+void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted)
 {
-	DebugTools::PrintToScreen(5.0f, FColor::Yellow, "OnReloadEnded Called");
+	bIsReloading = false;
+}
+
+void AFMGPlayer::OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted)
+{
 	bIsReloading = false;
 }
 
@@ -235,8 +238,17 @@ void AFMGPlayer::PlayAnimationMontage(UAnimMontage* AnimMontage)
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance && AnimMontage)
 		{
-			AnimInstance->Montage_SetBlendingOutDelegate(EndDelegate, AnimMontage);
 			AnimInstance->Montage_Play(AnimMontage, 1.0f);
+
+			// Reload BlendOut Delegate - as animation blends out
+			FOnMontageEnded BlendOutDelegate;
+			BlendOutDelegate.BindUObject(this, &AFMGPlayer::OnReloadBlendOut);
+			AnimInstance->Montage_SetBlendingOutDelegate(BlendOutDelegate, AnimMontage);
+
+			// Reload Completed Delegate - when animation completely ends
+			FOnMontageEnded CompletedDelegate;
+			CompletedDelegate.BindUObject(this, &AFMGPlayer::OnReloadCompleted);
+			AnimInstance->Montage_SetEndDelegate(CompletedDelegate, AnimMontage);
 		}
 	}
 }

@@ -31,13 +31,11 @@ private:
 	const float BULLET_DISTANCE = 10000.0f;
 	const float DEFAULT_WALK_SPEED = 500.0f;
 	const float DEFAULT_ADS_SPEED = 200.0f;
-	const float fireRate = 0.09f;
+	const float fireRate = 0.12f;
 
 	int32 curAmmo = 30;
 	bool openFireGate = true;
 	FTimerHandle fireTimerHandle;
-	// Reload Delegate
-	FOnMontageEnded EndDelegate;
 
 	// Conditional Bools
 	bool bIsReloading;
@@ -126,7 +124,9 @@ public:
 private:
 	void SetupCameraSettings();
 	UFUNCTION()
-	void OnReloadEnded(UAnimMontage* Montage, bool bInterrupted);
+	void OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted);
+	UFUNCTION()
+	void OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted);
 	UFUNCTION()
 	void FireWeapon();
 	void FireLineTrace();

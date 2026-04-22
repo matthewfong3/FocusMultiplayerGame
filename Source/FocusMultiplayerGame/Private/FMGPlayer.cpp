@@ -35,6 +35,11 @@ void AFMGPlayer::BeginPlay()
 
 	// Attach weapon mesh to skeletal mesh's weapon socket
 	WeaponMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("AutoRifleSocket"));
+
+	// Bind the Fire delegate to the name of from "this" object
+	FTimerDelegate FireDelegate;
+	FireDelegate.BindUFunction(this, FName("FireWeapon"));
+	EndDelegate.BindUObject(this, &AFMGPlayer::OnReloadEnded);
 	
 	if (userWidget)
 	{
@@ -102,6 +107,14 @@ void AFMGPlayer::StopJump()
 	StopJumping();
 }
 
+void AFMGPlayer::FireWeaponTimer()
+{
+	if (!openFireGate) return;
+
+	openFireGate = false;
+	GetWorldTimerManager().SetTimer(fireTimerHandle, this, &AFMGPlayer::FireWeapon, fireRate, true);
+}
+
 void AFMGPlayer::FireWeapon()
 {
 	if (!CanFire())
@@ -110,10 +123,15 @@ void AFMGPlayer::FireWeapon()
 		return;
 	}
 
-	// Add a fire rate delay
 	FireLineTrace();
 	SpawnGunshotMuzzleEffect();
 	PlayGunshotSound();
+}
+
+void AFMGPlayer::StopFiring()
+{
+	openFireGate = true;
+	GetWorldTimerManager().ClearTimer(fireTimerHandle);
 }
 
 void AFMGPlayer::FireLineTrace()
@@ -162,13 +180,14 @@ void AFMGPlayer::PlayGunshotSound()
 {
 	if (gunshotSound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), gunshotSound, GetActorLocation());
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), gunshotSound, GetActorLocation(), 0.1f);
 	}
 }
 
 void AFMGPlayer::StartReload()
 {
-	
+	bIsReloading = true;
+	PlayAnimationMontage(reloadAnimMontage);
 }
 
 void AFMGPlayer::StartADS()
@@ -201,6 +220,25 @@ bool AFMGPlayer::CanFire()
 	// REVISIT THIS: COMPILE ERROR
 	//const float vL = GetCharacterMovement()->Velocity.Length;
 	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && curAmmo > 0; // (vL < 400.0f)
+}
+
+void AFMGPlayer::OnReloadEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	DebugTools::PrintToScreen(5.0f, FColor::Yellow, "OnReloadEnded Called");
+	bIsReloading = false;
+}
+
+void AFMGPlayer::PlayAnimationMontage(UAnimMontage* AnimMontage)
+{
+	if (GetMesh())
+	{
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance && AnimMontage)
+		{
+			AnimInstance->Montage_SetBlendingOutDelegate(EndDelegate, AnimMontage);
+			AnimInstance->Montage_Play(AnimMontage, 1.0f);
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -241,6 +279,7 @@ void AFMGPlayer::BindEnhancedInput(UInputComponent* PlayerInputComponent)
 		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Completed, this, &AFMGPlayer::CancelADS);
 		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Canceled, this, &AFMGPlayer::CancelADS);
 
-		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Triggered, this, &AFMGPlayer::FireWeapon);
+		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Triggered, this, &AFMGPlayer::FireWeaponTimer);
+		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Completed, this, &AFMGPlayer::StopFiring);
 	}
 }

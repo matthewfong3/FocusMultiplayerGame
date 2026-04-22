@@ -31,9 +31,14 @@ private:
 	const float BULLET_DISTANCE = 10000.0f;
 	const float DEFAULT_WALK_SPEED = 500.0f;
 	const float DEFAULT_ADS_SPEED = 200.0f;
-
+	const float fireRate = 0.09f;
 
 	int32 curAmmo = 30;
+	bool openFireGate = true;
+	FTimerHandle fireTimerHandle;
+	// Reload Delegate
+	FOnMontageEnded EndDelegate;
+
 	// Conditional Bools
 	bool bIsReloading;
 	bool bIsADS;
@@ -78,6 +83,10 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Input", meta = (AllowPrivateAcccess = "true"))
 	TObjectPtr<UInputAction> ReloadAction;
 
+	// Reload Animation Montage
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> reloadAnimMontage;
+
 	// HUD
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UUserWidget> userWidget;
@@ -106,7 +115,8 @@ public:
 	void StartJump();
 	void StopJump();
 	// Shoot
-	void FireWeapon();
+	void FireWeaponTimer();
+	void StopFiring();
 	// Reload
 	void StartReload();
 	// ADS
@@ -115,7 +125,12 @@ public:
 
 private:
 	void SetupCameraSettings();
+	UFUNCTION()
+	void OnReloadEnded(UAnimMontage* Montage, bool bInterrupted);
+	UFUNCTION()
+	void FireWeapon();
 	void FireLineTrace();
 	void SpawnGunshotMuzzleEffect();
 	void PlayGunshotSound();
+	void PlayAnimationMontage(UAnimMontage* AnimMontage);
 };

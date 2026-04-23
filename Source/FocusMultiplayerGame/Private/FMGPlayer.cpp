@@ -47,12 +47,32 @@ void AFMGPlayer::BeginPlay()
 			playerHUD->AddToPlayerScreen();
 		}
 	}
+
+	SetHUDHealth();
+	SetHUDCurAmmo();
+	SetHUDMaxAmmo();
 }
 
 // Called every frame
 void AFMGPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+}
+
+void AFMGPlayer::SetHUDHealth()
+{
+	HUDHealth = health / 100.0f;
+	//DebugTools::PrintToScreen(4.0f, FColor::Blue, FString::Format(TEXT("Health: {0}"), { HUDHealth }));
+}
+
+void AFMGPlayer::SetHUDCurAmmo() 
+{
+	HUDCurAmmo = curAmmo;
+}
+
+void AFMGPlayer::SetHUDMaxAmmo()
+{
+	HUDMaxAmmo = maxAmmo;
 }
 
 void AFMGPlayer::Move(const FInputActionValue& Value)
@@ -116,16 +136,20 @@ void AFMGPlayer::FireWeaponTimer()
 
 void AFMGPlayer::FireWeapon()
 {
+	if (bIsReloading || GetCharacterMovement()->Velocity.Length() >= 400.0f) return;
+
 	if (!CanFire())
 	{
 		DebugTools::PrintToScreen(5.0f, FColor::Red, "can't fire");
+		PlaySound(magEmptySound);
 		return;
 	}
 
 	FireLineTrace();
 	SpawnGunshotMuzzleEffect();
-	PlayGunshotSound();
-	DebugTools::PrintToScreen(5.0f, FColor::White, curAmmo--;
+	PlaySound(gunshotSound);
+	--curAmmo;
+	SetHUDCurAmmo();
 }
 
 void AFMGPlayer::StopFiring()
@@ -160,7 +184,6 @@ void AFMGPlayer::FireLineTrace()
 			int32 bulletDamage = 20;
 			IDamageInterface::Execute_ApplyDamage(hitActor, bulletDamage);
 		}
-
 	}
 	else
 	{
@@ -176,16 +199,18 @@ void AFMGPlayer::SpawnGunshotMuzzleEffect()
 	}
 }
 
-void AFMGPlayer::PlayGunshotSound()
+void AFMGPlayer::PlaySound(USoundBase* sound)
 {
-	if (gunshotSound)
+	if (sound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), gunshotSound, GetActorLocation(), 0.1f);
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), sound, GetActorLocation(), 0.1f);
 	}
 }
 
 void AFMGPlayer::StartReload()
 {
+	if (!CanReload()) return;
+
 	bIsReloading = true;
 	PlayAnimationMontage(reloadAnimMontage);
 }
@@ -200,6 +225,9 @@ void AFMGPlayer::UpdateAmmo()
 
 	// Step 3: Update maxAmmo
 	maxAmmo = totalAmmo - curAmmo;
+
+	SetHUDCurAmmo();
+	SetHUDMaxAmmo();
 }
 
 void AFMGPlayer::StartADS()
@@ -227,6 +255,11 @@ bool AFMGPlayer::CanADS() {
 bool AFMGPlayer::CanFire()
 {	
 	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && (GetCharacterMovement()->Velocity.Length() < 400.0f) && curAmmo > 0;
+}
+
+bool AFMGPlayer::CanReload()
+{
+	return !bIsReloading && maxAmmo > 0 && curAmmo != magSize;
 }
 
 void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted)

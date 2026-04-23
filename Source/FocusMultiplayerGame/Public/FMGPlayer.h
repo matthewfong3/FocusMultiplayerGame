@@ -26,6 +26,14 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess = true))
+	float HUDHealth;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ammo", meta = (AllowPrivateAccess = true))
+	int32 HUDCurAmmo;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ammo", meta = (AllowPrivateAccess = true))
+	int32 HUDMaxAmmo;
+
 private:
 	// CONSTANTS
 	const float BULLET_DISTANCE = 10000.0f;
@@ -40,6 +48,8 @@ private:
 	bool openFireGate = true;
 	FTimerHandle fireTimerHandle;
 
+	float health = 100.0f;
+
 	// Conditional Bools
 	bool bIsReloading;
 	bool bIsADS;
@@ -47,6 +57,7 @@ private:
 	// Pure Methods
 	bool CanADS();
 	bool CanFire();
+	bool CanReload();
 private:
 	// Camera Fields
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -97,6 +108,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio", meta = (AllowPrivateAccess = true))
 	TObjectPtr<USoundBase> gunshotSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio", meta = (AllowPrivateAccess = true))
+	TObjectPtr<USoundBase> magEmptySound;
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -125,6 +139,9 @@ public:
 	void CancelADS();
 
 private:
+	void SetHUDHealth();
+	void SetHUDCurAmmo();
+	void SetHUDMaxAmmo();
 	void SetupCameraSettings();
 	UFUNCTION()
 	void OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted);
@@ -136,6 +153,6 @@ private:
 	void UpdateAmmo();
 
 	void SpawnGunshotMuzzleEffect();
-	void PlayGunshotSound();
+	void PlaySound(USoundBase* sound);
 	void PlayAnimationMontage(UAnimMontage* AnimMontage);
 };

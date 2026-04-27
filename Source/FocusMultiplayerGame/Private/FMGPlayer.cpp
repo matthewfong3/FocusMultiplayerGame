@@ -5,6 +5,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/DamageEvents.h"
+#include "Net/UnrealNetwork.h"
 #include "DamageInterface.h"
 #include "PrintStrings.h"
 
@@ -26,6 +28,10 @@ AFMGPlayer::AFMGPlayer()
 	// Set up weapon mesh component
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
 	WeaponMesh->SetupAttachment(GetMesh());
+
+	// Enable replication on this actor
+	SetReplicates(true);
+	
 }
 
 // Called when the game starts or when spawned
@@ -51,6 +57,13 @@ void AFMGPlayer::BeginPlay()
 	SetHUDHealth();
 	SetHUDCurAmmo();
 	SetHUDMaxAmmo();
+}
+
+void AFMGPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AFMGPlayer, WeaponMesh);
 }
 
 // Called every frame
@@ -145,8 +158,8 @@ void AFMGPlayer::FireWeapon()
 		return;
 	}
 
-	FireLineTrace();
-	SpawnGunshotMuzzleEffect();
+	ClientLineTrace();
+	ClientSpawnGunshot();
 	PlaySound(gunshotSound);
 	--curAmmo;
 	SetHUDCurAmmo();
@@ -158,19 +171,36 @@ void AFMGPlayer::StopFiring()
 	GetWorldTimerManager().ClearTimer(fireTimerHandle);
 }
 
-void AFMGPlayer::FireLineTrace()
+void AFMGPlayer::ClientLineTrace()
 {
 	FVector cameraTraceStart = followCamera->GetComponentLocation();
 	FVector cameraTraceEnd = followCamera->GetComponentLocation() + followCamera->GetForwardVector() * BULLET_DISTANCE;
 	FHitResult hitResult;
 	FCollisionQueryParams traceParams;
 	traceParams.AddIgnoredActor(this);
-
-	// Step 1: Line trace from camera location to where crosshair is aiming
+	
 	bool bCameraHit = GetWorld()->LineTraceSingleByChannel(hitResult, cameraTraceStart, cameraTraceEnd, ECollisionChannel::ECC_Camera, traceParams);
 
+	if (bCameraHit) ROS_LineTrace(cameraTraceStart, cameraTraceEnd);
+	//else DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Red, false, 5.0f, 0, 1.0f);
+}
+
+void AFMGPlayer::ROS_LineTrace_Implementation(const FVector& start, const FVector& end)
+{
+	MC_LineTrace(start, end);
+}
+
+void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector& end)
+{
+	FHitResult hitResult;
+	FCollisionQueryParams traceParams;
+	traceParams.AddIgnoredActor(this);
+
+	// Step 1: Line trace from camera location to where crosshair is aiming
+	bool bCameraHit = GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECollisionChannel::ECC_Camera, traceParams);
+
 	// Step 2: Use the weapon muzzle socket location as the start location of bullet trace
-	FVector bulletTraceStart = WeaponMesh->GetSocketLocation(TEXT("MuzzleSocket"));
+	FVector bulletTraceStart = WeaponMesh->GetSocketLocation(TEXT("MuzzleFlash"));
 	FVector bulletTraceEnd = bCameraHit ? hitResult.ImpactPoint : hitResult.TraceEnd;
 
 	// Step 3:  If camera's line trace hit something, draw bullet trace to the impact point
@@ -179,11 +209,25 @@ void AFMGPlayer::FireLineTrace()
 	{
 		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
 		AActor* hitActor = hitResult.GetActor();
+		if (hitActor->ActorHasTag(FName("Player")))
+		{
+			UGameplayStatics::ApplyPointDamage(
+				hitActor,
+				20.0f,
+				hitResult.ImpactNormal,
+				hitResult, 
+				GetController(),
+				this,
+				UDamageType::StaticClass()
+			);
+		}
+		/*
 		if (hitActor->GetClass()->ImplementsInterface(UDamageInterface::StaticClass()))
 		{
 			int32 bulletDamage = 20;
 			IDamageInterface::Execute_ApplyDamage(hitActor, bulletDamage);
 		}
+		*/
 	}
 	else
 	{
@@ -191,11 +235,21 @@ void AFMGPlayer::FireLineTrace()
 	}
 }
 
-void AFMGPlayer::SpawnGunshotMuzzleEffect()
+void AFMGPlayer::ClientSpawnGunshot()
+{
+	ROS_SpawnGunshot(WeaponMesh);
+}
+
+void AFMGPlayer::ROS_SpawnGunshot_Implementation(USkeletalMeshComponent* attachToComponent)
+{
+	MC_SpawnGunshot(attachToComponent);
+}
+
+void AFMGPlayer::MC_SpawnGunshot_Implementation(USkeletalMeshComponent* attachToComponent)
 {
 	if (gunshotMuzzleEffect)
 	{
-		UGameplayStatics::SpawnEmitterAttached(gunshotMuzzleEffect, WeaponMesh, TEXT("MuzzleFlash"));
+		UGameplayStatics::SpawnEmitterAttached(gunshotMuzzleEffect, attachToComponent, TEXT("MuzzleFlash"));
 	}
 }
 

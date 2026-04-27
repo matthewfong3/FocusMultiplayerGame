@@ -25,6 +25,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess = true))
@@ -66,7 +67,7 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> followCamera;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Mesh", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USkeletalMeshComponent> WeaponMesh;
 
 	// Input Mapping Contexts
@@ -103,7 +104,7 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UUserWidget> userWidget;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Particle System", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(Replicated, EditAnywhere, BlueprintReadOnly, Category = "Particle System", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UParticleSystem> gunshotMuzzleEffect;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio", meta = (AllowPrivateAccess = true))
@@ -149,10 +150,18 @@ private:
 	void OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted);
 	UFUNCTION()
 	void FireWeapon();
-	void FireLineTrace();
+	void ClientLineTrace();
+	UFUNCTION(Server, Reliable)
+	void ROS_LineTrace(const FVector& start, const FVector& end);
+	UFUNCTION(NetMulticast, Reliable)
+	void MC_LineTrace(const FVector& start, const FVector& end);
 	void UpdateAmmo();
 
-	void SpawnGunshotMuzzleEffect();
+	void ClientSpawnGunshot();
+	UFUNCTION(Server, Reliable)
+	void ROS_SpawnGunshot(USkeletalMeshComponent* attachToComponent);
+	UFUNCTION(NetMulticast, Reliable)
+	void MC_SpawnGunshot(USkeletalMeshComponent* attachToComponent);
 	void PlaySound(USoundBase* sound);
 	void PlayAnimationMontage(UAnimMontage* AnimMontage);
 };

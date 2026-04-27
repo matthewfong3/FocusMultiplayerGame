@@ -43,22 +43,28 @@ private:
 	const float fireRate = 0.12f;
 
 	// Weapon-related fields
+	UPROPERTY(Replicated)
 	int32 curAmmo = 30;
+	UPROPERTY(Replicated)
 	int32 magSize = 30;
+	UPROPERTY(Replicated)
 	int32 maxAmmo = 90;
 	bool openFireGate = true;
 	FTimerHandle fireTimerHandle;
 
+	UPROPERTY(Replicated)
 	float health = 100.0f;
 
 	// Conditional Bools
+	UPROPERTY(Replicated)
 	bool bIsReloading;
+	UPROPERTY(Replicated)
 	bool bIsADS;
 
 	// Pure Methods
 	bool CanADS();
 	bool CanFire();
-	bool CanReload();
+	bool CanReload(const int32& curAmmo, const int32& magSize, const int32& maxAmmo);
 private:
 	// Camera Fields
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -144,10 +150,14 @@ private:
 	void SetHUDCurAmmo();
 	void SetHUDMaxAmmo();
 	void SetupCameraSettings();
+
+
 	UFUNCTION()
 	void OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted);
 	UFUNCTION()
 	void OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted);
+
+	// Fire weapon line trace
 	UFUNCTION()
 	void FireWeapon();
 	void ClientLineTrace();
@@ -155,13 +165,30 @@ private:
 	void ROS_LineTrace(const FVector& start, const FVector& end);
 	UFUNCTION(NetMulticast, Reliable)
 	void MC_LineTrace(const FVector& start, const FVector& end);
+
+	// Reload weapon
+	void ClientReload();
+	UFUNCTION(Server, Reliable)
+	void ROS_Reload(USkeletalMeshComponent* skm_comp);
+	UFUNCTION(NetMulticast, Reliable)
+	void MC_Reload(USkeletalMeshComponent* skm_comp);
+
 	void UpdateAmmo();
 
+	// Play Gunshot Emitter
 	void ClientSpawnGunshot();
 	UFUNCTION(Server, Reliable)
 	void ROS_SpawnGunshot(USkeletalMeshComponent* attachToComponent);
 	UFUNCTION(NetMulticast, Reliable)
 	void MC_SpawnGunshot(USkeletalMeshComponent* attachToComponent);
-	void PlaySound(USoundBase* sound);
+
+	// Play SFX
+	void ClientPlaySound(USoundBase* sound);
+	UFUNCTION(Server, Reliable)
+	void ROS_PlaySound(USoundBase* sound, const FVector location);
+	UFUNCTION(NetMulticast, Reliable)
+	void MC_PlaySound(USoundBase* sound, const FVector location);
+
+	// Play Animation Montage
 	void PlayAnimationMontage(UAnimMontage* AnimMontage);
 };

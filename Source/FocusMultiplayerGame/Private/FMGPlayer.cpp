@@ -64,6 +64,10 @@ void AFMGPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AFMGPlayer, WeaponMesh);
+	DOREPLIFETIME(AFMGPlayer, health);
+	DOREPLIFETIME(AFMGPlayer, curAmmo);
+	DOREPLIFETIME(AFMGPlayer, maxAmmo);
+	DOREPLIFETIME(AFMGPlayer, magSize);
 }
 
 // Called every frame
@@ -154,13 +158,13 @@ void AFMGPlayer::FireWeapon()
 	if (!CanFire())
 	{
 		DebugTools::PrintToScreen(5.0f, FColor::Red, "can't fire");
-		PlaySound(magEmptySound);
+		ClientPlaySound(magEmptySound);
 		return;
 	}
 
 	ClientLineTrace();
 	ClientSpawnGunshot();
-	PlaySound(gunshotSound);
+	ClientPlaySound(gunshotSound);
 	--curAmmo;
 	SetHUDCurAmmo();
 }
@@ -253,19 +257,55 @@ void AFMGPlayer::MC_SpawnGunshot_Implementation(USkeletalMeshComponent* attachTo
 	}
 }
 
-void AFMGPlayer::PlaySound(USoundBase* sound)
+void AFMGPlayer::ClientPlaySound(USoundBase* sound)
 {
 	if (sound)
 	{
-		UGameplayStatics::PlaySoundAtLocation(GetWorld(), sound, GetActorLocation(), 0.1f);
+		ROS_PlaySound(sound, GetActorLocation());
 	}
+}
+
+void AFMGPlayer::ROS_PlaySound_Implementation(USoundBase* sound, const FVector location)
+{
+	MC_PlaySound(sound, location);
+}
+
+void AFMGPlayer::MC_PlaySound_Implementation(USoundBase* sound, const FVector location)
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), sound, location, 0.1f);
 }
 
 void AFMGPlayer::StartReload()
 {
-	if (!CanReload()) return;
+	ClientReload();
+}
+
+void AFMGPlayer::ClientReload()
+{
+	if (!CanReload(curAmmo, magSize, maxAmmo)) 
+	{
+		DebugTools::PrintToScreen(5.0f, FColor::Green, "client: cant reload");
+		return;
+	}
+
+	ROS_Reload(GetMesh());
+}
+
+void AFMGPlayer::ROS_Reload_Implementation(USkeletalMeshComponent* skm_comp)
+{
+	if (!CanReload(curAmmo, magSize, maxAmmo))
+	{
+		DebugTools::PrintToScreen(5.0f, FColor::Green, "server: cant reload");
+		return;
+	}
 
 	bIsReloading = true;
+	MC_Reload(skm_comp);
+}
+
+void AFMGPlayer::MC_Reload_Implementation(USkeletalMeshComponent* skm_comp)
+{
+	DebugTools::PrintToScreen(5.0f, FColor::Orange, "multicast reload called");
 	PlayAnimationMontage(reloadAnimMontage);
 }
 
@@ -280,8 +320,8 @@ void AFMGPlayer::UpdateAmmo()
 	// Step 3: Update maxAmmo
 	maxAmmo = totalAmmo - curAmmo;
 
-	SetHUDCurAmmo();
-	SetHUDMaxAmmo();
+	//SetHUDCurAmmo();
+	//SetHUDMaxAmmo();
 }
 
 void AFMGPlayer::StartADS()
@@ -311,7 +351,7 @@ bool AFMGPlayer::CanFire()
 	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && (GetCharacterMovement()->Velocity.Length() < 400.0f) && curAmmo > 0;
 }
 
-bool AFMGPlayer::CanReload()
+bool AFMGPlayer::CanReload(const int32& curAmmo, const int32& magSize, const int32& maxAmmo)
 {
 	return !bIsReloading && maxAmmo > 0 && curAmmo != magSize;
 }

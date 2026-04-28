@@ -29,9 +29,10 @@ AFMGPlayer::AFMGPlayer()
 	WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
 	WeaponMesh->SetupAttachment(GetMesh());
 
+	this->Tags.Add("Player");
+
 	// Enable replication on this actor
 	SetReplicates(true);
-	
 }
 
 // Called when the game starts or when spawned
@@ -53,10 +54,6 @@ void AFMGPlayer::BeginPlay()
 			playerHUD->AddToPlayerScreen();
 		}
 	}
-
-	SetHUDHealth();
-	SetHUDCurAmmo();
-	SetHUDMaxAmmo();
 }
 
 void AFMGPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -70,26 +67,19 @@ void AFMGPlayer::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifeti
 	DOREPLIFETIME(AFMGPlayer, magSize);
 }
 
+float AFMGPlayer::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	health -= ActualDamage;
+	
+	return ActualDamage;
+}
+
 // Called every frame
 void AFMGPlayer::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-}
-
-void AFMGPlayer::SetHUDHealth()
-{
-	HUDHealth = health / 100.0f;
-	//DebugTools::PrintToScreen(4.0f, FColor::Blue, FString::Format(TEXT("Health: {0}"), { HUDHealth }));
-}
-
-void AFMGPlayer::SetHUDCurAmmo() 
-{
-	HUDCurAmmo = curAmmo;
-}
-
-void AFMGPlayer::SetHUDMaxAmmo()
-{
-	HUDMaxAmmo = maxAmmo;
 }
 
 void AFMGPlayer::Move(const FInputActionValue& Value)
@@ -166,7 +156,6 @@ void AFMGPlayer::FireWeapon()
 	ClientSpawnGunshot();
 	ClientPlaySound(gunshotSound);
 	--curAmmo;
-	SetHUDCurAmmo();
 }
 
 void AFMGPlayer::StopFiring()
@@ -218,9 +207,9 @@ void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector
 			UGameplayStatics::ApplyPointDamage(
 				hitActor,
 				20.0f,
-				hitResult.ImpactNormal,
-				hitResult, 
-				GetController(),
+				hitResult.ImpactPoint,
+				hitResult,
+				GetInstigator()->GetController(),
 				this,
 				UDamageType::StaticClass()
 			);
@@ -282,46 +271,47 @@ void AFMGPlayer::StartReload()
 
 void AFMGPlayer::ClientReload()
 {
-	if (!CanReload(curAmmo, magSize, maxAmmo)) 
+	if (!CanReload(curAmmo, maxAmmo, magSize)) 
 	{
-		DebugTools::PrintToScreen(5.0f, FColor::Green, "client: cant reload");
 		return;
 	}
 
-	ROS_Reload(GetMesh());
+	ROS_Reload(GetMesh(), curAmmo, maxAmmo, magSize);
 }
 
-void AFMGPlayer::ROS_Reload_Implementation(USkeletalMeshComponent* skm_comp)
+void AFMGPlayer::ROS_Reload_Implementation(USkeletalMeshComponent* skm_comp, int32 curA, int32 maxA, int32 magS)
 {
-	if (!CanReload(curAmmo, magSize, maxAmmo))
+	if (!CanReload(curA, maxA, magS))
 	{
-		DebugTools::PrintToScreen(5.0f, FColor::Green, "server: cant reload");
 		return;
 	}
 
 	bIsReloading = true;
-	MC_Reload(skm_comp);
+	MC_Reload(skm_comp, curA, maxA, magS);
 }
 
-void AFMGPlayer::MC_Reload_Implementation(USkeletalMeshComponent* skm_comp)
+void AFMGPlayer::MC_Reload_Implementation(USkeletalMeshComponent* skm_comp, int32 curA, int32 maxA, int32 magS)
 {
-	DebugTools::PrintToScreen(5.0f, FColor::Orange, "multicast reload called");
-	PlayAnimationMontage(reloadAnimMontage);
+	PlayReloadAnimMontage(reloadAnimMontage, curA, maxA, magS);
 }
 
-void AFMGPlayer::UpdateAmmo()
+void AFMGPlayer::OnRep_curAmmo()
+{
+}
+
+void AFMGPlayer::UpdateAmmo(int32 curA, int32 maxA, int32 magS)
 {
 	// Step 1: Total all ammo in a temp variable
-	float totalAmmo = curAmmo + maxAmmo;
+	float totalAmmo = curA + maxA;
 
 	// Step 2: Update curAmmo by loading in what we can
-	curAmmo = totalAmmo >= magSize ? magSize : totalAmmo;
+	curA = totalAmmo >= magS ? magS : totalAmmo;
 
 	// Step 3: Update maxAmmo
-	maxAmmo = totalAmmo - curAmmo;
+	maxA = totalAmmo - curA;
 
-	//SetHUDCurAmmo();
-	//SetHUDMaxAmmo();
+	curAmmo = curA;
+	maxAmmo = maxA;
 }
 
 void AFMGPlayer::StartADS()
@@ -351,24 +341,30 @@ bool AFMGPlayer::CanFire()
 	return !bIsReloading && !(GetCharacterMovement()->IsFalling()) && (GetCharacterMovement()->Velocity.Length() < 400.0f) && curAmmo > 0;
 }
 
-bool AFMGPlayer::CanReload(const int32& curAmmo, const int32& magSize, const int32& maxAmmo)
+bool AFMGPlayer::CanReload(int32 curA, int32 maxA, int32 magS)
 {
-	return !bIsReloading && maxAmmo > 0 && curAmmo != magSize;
+	return !bIsReloading && maxA > 0 && curA != magS;
 }
 
-void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted)
+void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted, int32 curA, int32 maxA, int32 magS)
 {
-	bIsReloading = false;
-	UpdateAmmo();
+	if (bIsReloading)
+	{
+		bIsReloading = false;
+		UpdateAmmo(curA, maxA, magS);
+	}
 }
 
-void AFMGPlayer::OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted)
+void AFMGPlayer::OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted, int32 curA, int32 maxA, int32 magS)
 {
-	bIsReloading = false;
-	UpdateAmmo();
+	if (bIsReloading)
+	{
+		bIsReloading = false;
+		UpdateAmmo(curA, maxA, magS);
+	}
 }
 
-void AFMGPlayer::PlayAnimationMontage(UAnimMontage* AnimMontage)
+void AFMGPlayer::PlayReloadAnimMontage(UAnimMontage* AnimMontage, int32 curA, int32 maxA, int32 magS)
 {
 	if (GetMesh())
 	{
@@ -379,12 +375,12 @@ void AFMGPlayer::PlayAnimationMontage(UAnimMontage* AnimMontage)
 
 			// Reload BlendOut Delegate - as animation blends out
 			FOnMontageEnded BlendOutDelegate;
-			BlendOutDelegate.BindUObject(this, &AFMGPlayer::OnReloadBlendOut);
+			BlendOutDelegate.BindUObject(this, &AFMGPlayer::OnReloadBlendOut, curA, maxA, magS);
 			AnimInstance->Montage_SetBlendingOutDelegate(BlendOutDelegate, AnimMontage);
 
 			// Reload Completed Delegate - when animation completely ends
 			FOnMontageEnded CompletedDelegate;
-			CompletedDelegate.BindUObject(this, &AFMGPlayer::OnReloadCompleted);
+			CompletedDelegate.BindUObject(this, &AFMGPlayer::OnReloadCompleted, curA, maxA, magS);
 			AnimInstance->Montage_SetEndDelegate(CompletedDelegate, AnimMontage);
 		}
 	}

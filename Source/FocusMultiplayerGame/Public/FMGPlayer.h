@@ -26,14 +26,17 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
 public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess = true))
-	float HUDHealth;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ammo", meta = (AllowPrivateAccess = true))
-	int32 HUDCurAmmo;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Ammo", meta = (AllowPrivateAccess = true))
-	int32 HUDMaxAmmo;
+	// Weapon-related fields
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Ammo", meta = (AllowPrivateAccess = true))
+	int32 curAmmo = 30;
+	UPROPERTY(Replicated)
+	int32 magSize = 30;
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Ammo", meta = (AllowPrivateAccess = true))
+	int32 maxAmmo = 90;
+	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Health", meta = (AllowPrivateAccess = true))
+	float health = 100.0f;
 
 private:
 	// CONSTANTS
@@ -42,18 +45,8 @@ private:
 	const float DEFAULT_ADS_SPEED = 200.0f;
 	const float fireRate = 0.12f;
 
-	// Weapon-related fields
-	UPROPERTY(Replicated)
-	int32 curAmmo = 30;
-	UPROPERTY(Replicated)
-	int32 magSize = 30;
-	UPROPERTY(Replicated)
-	int32 maxAmmo = 90;
 	bool openFireGate = true;
 	FTimerHandle fireTimerHandle;
-
-	UPROPERTY(Replicated)
-	float health = 100.0f;
 
 	// Conditional Bools
 	UPROPERTY(Replicated)
@@ -64,7 +57,7 @@ private:
 	// Pure Methods
 	bool CanADS();
 	bool CanFire();
-	bool CanReload(const int32& curAmmo, const int32& magSize, const int32& maxAmmo);
+	bool CanReload(int32 curA, int32 maxA, int32 magS);
 private:
 	// Camera Fields
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
@@ -140,22 +133,19 @@ public:
 	void FireWeaponTimer();
 	void StopFiring();
 	// Reload
+	UFUNCTION()
 	void StartReload();
 	// ADS
 	void StartADS();
 	void CancelADS();
 
 private:
-	void SetHUDHealth();
-	void SetHUDCurAmmo();
-	void SetHUDMaxAmmo();
 	void SetupCameraSettings();
 
-
 	UFUNCTION()
-	void OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted);
+	void OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted, int32 curA, int32 maxA, int32 magS);
 	UFUNCTION()
-	void OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted);
+	void OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted, int32 curA, int32 maxA, int32 magS);
 
 	// Fire weapon line trace
 	UFUNCTION()
@@ -167,13 +157,16 @@ private:
 	void MC_LineTrace(const FVector& start, const FVector& end);
 
 	// Reload weapon
+	UFUNCTION()
 	void ClientReload();
 	UFUNCTION(Server, Reliable)
-	void ROS_Reload(USkeletalMeshComponent* skm_comp);
+	void ROS_Reload(USkeletalMeshComponent* skm_comp, int32 curA, int32 maxA, int32 magS);
 	UFUNCTION(NetMulticast, Reliable)
-	void MC_Reload(USkeletalMeshComponent* skm_comp);
+	void MC_Reload(USkeletalMeshComponent* skm_comp, int32 curA, int32 maxA, int32 magS);
 
-	void UpdateAmmo();
+	UFUNCTION()
+	void OnRep_curAmmo();
+	void UpdateAmmo(int32 curA, int32 maxA, int32 magS);
 
 	// Play Gunshot Emitter
 	void ClientSpawnGunshot();
@@ -190,5 +183,7 @@ private:
 	void MC_PlaySound(USoundBase* sound, const FVector location);
 
 	// Play Animation Montage
-	void PlayAnimationMontage(UAnimMontage* AnimMontage);
+	UFUNCTION()
+	void PlayReloadAnimMontage(UAnimMontage* AnimMontage, int32 curA, int32 maxA, int32 magS);
+
 };

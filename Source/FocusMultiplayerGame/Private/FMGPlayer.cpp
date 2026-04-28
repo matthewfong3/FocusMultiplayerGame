@@ -205,13 +205,14 @@ void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector
 	if (bCameraHit)
 	{
 		//DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
+		
 		AActor* hitActor = hitResult.GetActor();
 		if (hitActor->ActorHasTag(FName("Player")))
 		{
 			UGameplayStatics::ApplyPointDamage(
 				hitActor,
 				GetDamageMultiplier(hitResult),
-				hitResult.ImpactNormal,
+				hitResult.ImpactPoint,
 				hitResult,
 				GetInstigator()->GetController(),
 				this,
@@ -219,39 +220,35 @@ void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector
 			);
 		}
 	}
-	else
-	{
-		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Red, false, 5.0f, 0, 1.0f);
-	}
 }
 
-float AFMGPlayer::GetDamageMultiplier(FHitResult hResult)
+float AFMGPlayer::GetDamageMultiplier(FHitResult& hResult)
 {
-	UPhysicalMaterial* hitPhysMat = hResult.PhysMaterial.Get();
 	float dmg = 0.0f;
 
-	if (hitPhysMat)
+	if (hResult.PhysMaterial.IsValid())
 	{
-		EPhysicalSurface surfaceType = hitPhysMat->SurfaceType;
-
-		switch (surfaceType)
+		UPhysicalMaterial* hitPhysMat = hResult.PhysMaterial.Get();
+		
+		if (hitPhysMat)
 		{
-		case SurfaceType1: // Headshot
-			DebugTools::PrintToScreen(5.0f, FColor::Red, TEXT("HeadShot!"));
-			dmg = 50.0f;
-			break;
-		case SurfaceType2: // Bodyshot
-			DebugTools::PrintToScreen(5.0f, FColor::Yellow, TEXT("BodyShot!"));
-			dmg = 10.0f;
-			break;
-		case SurfaceType_Default:
-			DebugTools::PrintToScreen(5.0f, FColor::Green, TEXT("Default!"));
-			dmg = 5.0f;
-			break;
+			EPhysicalSurface surfaceType = hitPhysMat->SurfaceType;
+
+			switch (surfaceType)
+			{
+			case SurfaceType1: // Headshot
+				dmg = 50.0f;
+				break;
+			case SurfaceType2: // Bodyshot
+				dmg = 10.0f;
+				break;
+			case SurfaceType_Default:
+				dmg = 5.0f;
+				break;
+			}
 		}
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("%f"), dmg);
+	
 	return dmg;
 }
 
@@ -394,11 +391,8 @@ void AFMGPlayer::OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted, int
 
 void AFMGPlayer::OnReloadBlendOut(UAnimMontage* Montage, bool bInterrupted, int32 curA, int32 maxA, int32 magS)
 {
-	if (bIsReloading)
-	{
-		bIsReloading = false;
-		UpdateAmmo(curA, maxA, magS);
-	}
+	bIsReloading = false;
+	UpdateAmmo(curA, maxA, magS);
 }
 
 void AFMGPlayer::PlayReloadAnimMontage(UAnimMontage* AnimMontage, int32 curA, int32 maxA, int32 magS)

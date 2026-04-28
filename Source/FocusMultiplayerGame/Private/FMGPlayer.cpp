@@ -156,6 +156,7 @@ void AFMGPlayer::FireWeapon()
 	ClientSpawnGunshot();
 	ClientPlaySound(gunshotSound);
 	--curAmmo;
+	ApplyWeaponRecoil();
 }
 
 void AFMGPlayer::StopFiring()
@@ -174,8 +175,10 @@ void AFMGPlayer::ClientLineTrace()
 	
 	bool bCameraHit = GetWorld()->LineTraceSingleByChannel(hitResult, cameraTraceStart, cameraTraceEnd, ECollisionChannel::ECC_Camera, traceParams);
 
-	if (bCameraHit) ROS_LineTrace(cameraTraceStart, cameraTraceEnd);
-	//else DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Red, false, 5.0f, 0, 1.0f);
+	if (bCameraHit)
+	{
+		ROS_LineTrace(cameraTraceStart, cameraTraceEnd);
+	}
 }
 
 void AFMGPlayer::ROS_LineTrace_Implementation(const FVector& start, const FVector& end)
@@ -188,6 +191,7 @@ void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector
 	FHitResult hitResult;
 	FCollisionQueryParams traceParams;
 	traceParams.AddIgnoredActor(this);
+	traceParams.bReturnPhysicalMaterial = true;
 
 	// Step 1: Line trace from camera location to where crosshair is aiming
 	bool bCameraHit = GetWorld()->LineTraceSingleByChannel(hitResult, start, end, ECollisionChannel::ECC_Camera, traceParams);
@@ -200,32 +204,55 @@ void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector
 	//			Else, draw bullet trace to the end of the line trace
 	if (bCameraHit)
 	{
-		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
+		//DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
 		AActor* hitActor = hitResult.GetActor();
 		if (hitActor->ActorHasTag(FName("Player")))
 		{
 			UGameplayStatics::ApplyPointDamage(
 				hitActor,
-				20.0f,
-				hitResult.ImpactPoint,
+				GetDamageMultiplier(hitResult),
+				hitResult.ImpactNormal,
 				hitResult,
 				GetInstigator()->GetController(),
 				this,
 				UDamageType::StaticClass()
 			);
 		}
-		/*
-		if (hitActor->GetClass()->ImplementsInterface(UDamageInterface::StaticClass()))
-		{
-			int32 bulletDamage = 20;
-			IDamageInterface::Execute_ApplyDamage(hitActor, bulletDamage);
-		}
-		*/
 	}
 	else
 	{
 		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Red, false, 5.0f, 0, 1.0f);
 	}
+}
+
+float AFMGPlayer::GetDamageMultiplier(FHitResult hResult)
+{
+	UPhysicalMaterial* hitPhysMat = hResult.PhysMaterial.Get();
+	float dmg = 0.0f;
+
+	if (hitPhysMat)
+	{
+		EPhysicalSurface surfaceType = hitPhysMat->SurfaceType;
+
+		switch (surfaceType)
+		{
+		case SurfaceType1: // Headshot
+			DebugTools::PrintToScreen(5.0f, FColor::Red, TEXT("HeadShot!"));
+			dmg = 50.0f;
+			break;
+		case SurfaceType2: // Bodyshot
+			DebugTools::PrintToScreen(5.0f, FColor::Yellow, TEXT("BodyShot!"));
+			dmg = 10.0f;
+			break;
+		case SurfaceType_Default:
+			DebugTools::PrintToScreen(5.0f, FColor::Green, TEXT("Default!"));
+			dmg = 5.0f;
+			break;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("%f"), dmg);
+	return dmg;
 }
 
 void AFMGPlayer::ClientSpawnGunshot()
@@ -312,6 +339,16 @@ void AFMGPlayer::UpdateAmmo(int32 curA, int32 maxA, int32 magS)
 
 	curAmmo = curA;
 	maxAmmo = maxA;
+}
+
+void AFMGPlayer::ApplyWeaponRecoil()
+{
+	FRotator curRot = followCamera->GetRelativeRotation();
+
+	float newPitch = curRot.Pitch + FMath::FRandRange(0.1f, 0.3f);
+	float newYaw = curRot.Yaw + FMath::FRandRange(-0.5f, 0.5f);
+
+	followCamera->SetRelativeRotation(FRotator(newPitch, newYaw, curRot.Roll));
 }
 
 void AFMGPlayer::StartADS()
@@ -424,6 +461,7 @@ void AFMGPlayer::BindEnhancedInput(UInputComponent* PlayerInputComponent)
 		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Completed, this, &AFMGPlayer::CancelADS);
 		enhancedInputComponent->BindAction(ADSAction, ETriggerEvent::Canceled, this, &AFMGPlayer::CancelADS);
 
+		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Started, this, &AFMGPlayer::FireWeaponTimer);
 		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Triggered, this, &AFMGPlayer::FireWeaponTimer);
 		enhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Completed, this, &AFMGPlayer::StopFiring);
 	}

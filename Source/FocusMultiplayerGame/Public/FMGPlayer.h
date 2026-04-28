@@ -141,6 +141,8 @@ public:
 
 private:
 	void SetupCameraSettings();
+	void ApplyWeaponRecoil();
+	float GetDamageMultiplier(FHitResult hResult);
 
 	UFUNCTION()
 	void OnReloadCompleted(UAnimMontage* Montage, bool bInterrupted, int32 curA, int32 maxA, int32 magS);

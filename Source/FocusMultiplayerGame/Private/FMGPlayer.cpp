@@ -204,20 +204,25 @@ void AFMGPlayer::MC_LineTrace_Implementation(const FVector& start, const FVector
 	//			Else, draw bullet trace to the end of the line trace
 	if (bCameraHit)
 	{
-		//DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
+		DrawDebugLine(GetWorld(), bulletTraceStart, bulletTraceEnd, FColor::Green, false, 5.0f, 0, 1.0f);
 		
 		AActor* hitActor = hitResult.GetActor();
 		if (hitActor->ActorHasTag(FName("Player")))
 		{
+			float dmg = GetDamageMultiplier(hitResult);
 			UGameplayStatics::ApplyPointDamage(
 				hitActor,
-				GetDamageMultiplier(hitResult),
+				dmg,
 				hitResult.ImpactPoint,
 				hitResult,
 				GetInstigator()->GetController(),
 				this,
 				UDamageType::StaticClass()
 			);
+
+			AFMGPlayer* hitPlayer = Cast<AFMGPlayer>(hitActor);
+			UAnimMontage* animToPlay = dmg == 50.0f ? hitReactAnimMontage_HS : hitReactAnimMontage_BS;
+			PlayHitReactAnimMontage(animToPlay, hitPlayer);
 		}
 	}
 }
@@ -413,6 +418,18 @@ void AFMGPlayer::PlayReloadAnimMontage(UAnimMontage* AnimMontage, int32 curA, in
 			FOnMontageEnded CompletedDelegate;
 			CompletedDelegate.BindUObject(this, &AFMGPlayer::OnReloadCompleted, curA, maxA, magS);
 			AnimInstance->Montage_SetEndDelegate(CompletedDelegate, AnimMontage);
+		}
+	}
+}
+
+void AFMGPlayer::PlayHitReactAnimMontage(UAnimMontage* AnimMontage, AFMGPlayer* hActor)
+{
+	if (hActor->GetMesh())
+	{
+		UAnimInstance* AnimInstance = hActor->GetMesh()->GetAnimInstance();
+		if (AnimInstance && AnimMontage)
+		{
+			AnimInstance->Montage_Play(AnimMontage, 1.0f);
 		}
 	}
 }

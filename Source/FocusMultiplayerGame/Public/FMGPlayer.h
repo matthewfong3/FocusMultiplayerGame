@@ -99,6 +99,13 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAnimMontage> reloadAnimMontage;
 
+	// Hit React Animation Montage
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> hitReactAnimMontage_BS;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UAnimMontage> hitReactAnimMontage_HS;
+
 	// HUD
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UUserWidget> userWidget;
@@ -139,6 +146,9 @@ public:
 	void StartADS();
 	void CancelADS();
 
+	// Play Hit React Anim Montage
+	UFUNCTION()
+	void PlayHitReactAnimMontage(UAnimMontage* AnimMontage, AFMGPlayer* hActor);
 private:
 	void SetupCameraSettings();
 	void ApplyWeaponRecoil();
@@ -187,5 +197,4 @@ private:
 	// Play Animation Montage
 	UFUNCTION()
 	void PlayReloadAnimMontage(UAnimMontage* AnimMontage, int32 curA, int32 maxA, int32 magS);
-
 };
